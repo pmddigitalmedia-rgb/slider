@@ -70,7 +70,93 @@
           </div>
         );
       };
+const ImageComparison = () => {
+        const [sliderPosition, setSliderPosition] = useState(50);
+        const [isResizing, setIsResizing] = useState(false);
 
+        // You can change these URLs to your own images
+        const beforeImage = "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?q=80&w=1000&auto=format&fit=crop"; // Gray Room
+        const afterImage = "https://images.unsplash.com/photo-1556910103-1c02745a30bf?q=80&w=1000&auto=format&fit=crop";  // Colorful Room
+
+        const handleMove = (event) => {
+          setSliderPosition(event.target.value);
+        };
+
+        return (
+          <div className="w-full max-w-4xl mx-auto p-6">
+            
+            {/* Header Text */}
+            <div className="mb-6 text-center">
+              <h2 className="text-2xl font-bold mb-2 text-white">Image Comparison</h2>
+              <p className="text-gray-400">Drag the slider to see the difference</p>
+            </div>
+
+            {/* The Slider Container */}
+            <div className="relative w-full aspect-video rounded-xl overflow-hidden border-2 border-indigo-500/30 shadow-2xl">
+              
+              {/* IMAGE 1 (Background / After) */}
+              <img 
+                src={afterImage} 
+                alt="After" 
+                className="absolute top-0 left-0 h-full w-full object-cover"
+              />
+
+              {/* IMAGE 2 (Foreground / Before) - Clipped by width */}
+              <div 
+                className="absolute top-0 left-0 h-full overflow-hidden border-r-2 border-white"
+                style={{ width: `${sliderPosition}%` }}
+              >
+                <img 
+                  src={beforeImage} 
+                  alt="Before" 
+                  className="absolute top-0 left-0 h-full max-w-none object-cover"
+                  style={{ width: '100vw', maxWidth: '56rem' }} // Matches container max-width to keep aspect ratio
+                />
+              </div>
+
+              {/* The Draggable Slider Handle (Visual) */}
+              <div 
+                className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize"
+                style={{ 
+                  left: `${sliderPosition}%`,
+                  transform: 'translateX(-50%)' 
+                }}
+              >
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center">
+                  <GripVertical className="w-5 h-5 text-slate-800" />
+                </div>
+              </div>
+
+              {/* The Range Input (Functional - Invisible on top) */}
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={sliderPosition}
+                onChange={handleMove}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-10"
+              />
+              
+              {/* Labels */}
+              <div className="absolute top-4 left-4 bg-black/50 text-white px-2 py-1 rounded text-sm font-medium backdrop-blur-sm pointer-events-none">
+                Before
+              </div>
+              <div className="absolute top-4 right-4 bg-black/50 text-white px-2 py-1 rounded text-sm font-medium backdrop-blur-sm pointer-events-none">
+                After
+              </div>
+
+            </div>
+          </div>
+        );
+      };
+
+      const App = () => {
+        return (
+          <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+            <ImageComparison />
+          </div>
+        );
+      };
       // --- PASTE YOUR REACT COMPONENT CODE ABOVE THIS LINE ---
 
       const root = createRoot(document.getElementById('root'));
