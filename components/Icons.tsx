@@ -12,7 +12,8 @@ import {
   MousePointer2,
   Video,
   Copy,
-  Check
+  Check,
+  Info
 } from 'lucide-react';
 
 export const Icons = {
@@ -29,5 +30,6 @@ export const Icons = {
   Hover: MousePointer2,
   Video: Video,
   Copy: Copy,
-  Check: Check
+  Check: Check,
+  Info: Info
 };

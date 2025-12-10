@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icons } from './Icons';
 import { GIFEncoder, quantize, applyPalette } from 'gifenc';
+import { HostingHelp } from './HostingHelp';
 
 interface ComparisonSliderProps {
   beforeImage: string;
@@ -17,6 +18,7 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
   const [isExportingVideo, setIsExportingVideo] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [showHostingHelp, setShowHostingHelp] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,7 +46,7 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
   });
 
   // Helper to compress and convert image to base64 JPEG
-  const compressAndToBase64 = async (src: string, maxWidth = 1600): Promise<string> => {
+  const compressAndToBase64 = async (src: string, maxWidth = 1600, quality = 0.85): Promise<string> => {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
@@ -70,8 +72,8 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
             ctx.fillRect(0, 0, width, height);
             ctx.drawImage(img, 0, 0, width, height);
             
-            // Convert to JPEG with 0.85 quality
-            resolve(canvas.toDataURL('image/jpeg', 0.85));
+            // Convert to JPEG with specified quality
+            resolve(canvas.toDataURL('image/jpeg', quality));
         };
         img.onerror = (err) => reject(new Error("Failed to load image for compression"));
         img.src = src;
@@ -79,6 +81,8 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
   };
 
   const generateInteractiveHtml = (width: number, height: number, base64Before: string, base64After: string) => {
+    const aspectRatioPercent = (height / width) * 100;
+    
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -89,7 +93,7 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
         body {
             margin: 0;
             padding: 0;
-            background-color: #1e293b; /* Dark slate */
+            background-color: #1e293b;
             color: #f8fafc;
             display: flex;
             align-items: center;
@@ -98,29 +102,30 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
             font-family: system-ui, -apple-system, sans-serif;
             overflow: hidden;
         }
+        .wrapper {
+            width: 100%;
+            max-width: 100%;
+            display: block;
+        }
         .container {
             position: relative;
             width: 100%;
-            aspect-ratio: ${width} / ${height};
-            max-height: 100vh;
+            padding-bottom: ${aspectRatioPercent}%; /* Aspect Ratio Hack */
+            height: 0;
             overflow: hidden;
             user-select: none;
             background-color: #0f172a;
             z-index: 1;
         }
-        img {
+        .container img {
             display: block;
             width: 100%;
             height: 100%;
             object-fit: cover;
             pointer-events: none;
-        }
-        .img-layer {
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
         }
         .img-before {
             z-index: 10;
@@ -173,7 +178,7 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
         }
         .label {
             position: absolute;
-            bottom: 16px;
+            bottom: 5%; 
             padding: 4px 12px;
             background: rgba(0,0,0,0.6);
             backdrop-filter: blur(4px);
@@ -185,8 +190,8 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
             z-index: 15;
             border: 1px solid rgba(255,255,255,0.1);
         }
-        .label-before { left: 16px; }
-        .label-after { right: 16px; }
+        .label-before { left: 4%; }
+        .label-after { right: 4%; }
         
         #error-log {
             position: fixed;
@@ -200,26 +205,36 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
             display: none;
             z-index: 9999;
         }
+        
+        /* Loading Text */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #64748b;
+        }
     </style>
 </head>
 <body>
-    <div class="container" id="mainContainer">
-        
-        <div class="img-layer img-after">
-            <img src="${base64After}" alt="After Image">
+    <div class="wrapper">
+        <div class="container" id="mainContainer">
+            <div class="loading">Loading comparison...</div>
+            
+            <img src="${base64After}" alt="After Image" class="img-after">
             <div class="label label-after">AFTER</div>
-        </div>
-        
-        <div class="img-layer img-before" id="beforeLayer">
-            <img src="${base64Before}" alt="Before Image">
-            <div class="label label-before">BEFORE</div>
-        </div>
+            
+            <div id="beforeLayer">
+                <img src="${base64Before}" alt="Before Image" class="img-before">
+                <div class="label label-before">BEFORE</div>
+            </div>
 
-        <div class="handle" id="handleLine">
-            <div class="handle-knob"></div>
-        </div>
+            <div class="handle" id="handleLine">
+                <div class="handle-knob"></div>
+            </div>
 
-        <input type="range" min="0" max="100" value="50" id="slider" aria-label="Comparison slider">
+            <input type="range" min="0" max="100" value="50" id="slider" aria-label="Comparison slider">
+        </div>
     </div>
     
     <div id="error-log"></div>
@@ -228,14 +243,18 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 const slider = document.getElementById('slider');
-                const beforeLayer = document.getElementById('beforeLayer');
+                const beforeImg = document.querySelector('.img-before');
                 const handleLine = document.getElementById('handleLine');
+                const loading = document.querySelector('.loading');
 
-                if (slider && beforeLayer && handleLine) {
+                if (slider && beforeImg && handleLine) {
+                    // Remove loading text once JS runs
+                    if(loading) loading.style.display = 'none';
+                    
                     slider.addEventListener('input', (e) => {
                         requestAnimationFrame(() => {
                             const val = e.target.value;
-                            beforeLayer.style.clipPath = \`inset(0 \${100 - val}% 0 0)\`;
+                            beforeImg.style.clipPath = \`inset(0 \${100 - val}% 0 0)\`;
                             handleLine.style.left = \`\${val}%\`;
                         });
                     });
@@ -582,10 +601,10 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
       const width = Math.round(imgRef.naturalWidth);
       const height = Math.round(imgRef.naturalHeight);
       
-      // Default to 1600px for file download
+      // Use 1280px and 0.75 quality to guarantee file size is well under 3MB
       const [base64Before, base64After] = await Promise.all([
-        compressAndToBase64(beforeImage, 1600),
-        compressAndToBase64(afterImage, 1600)
+        compressAndToBase64(beforeImage, 1280, 0.75),
+        compressAndToBase64(afterImage, 1280, 0.75)
       ]);
 
       const htmlContent = generateInteractiveHtml(width, height, base64Before, base64After);
@@ -613,10 +632,10 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
       const width = Math.round(imgRef.naturalWidth);
       const height = Math.round(imgRef.naturalHeight);
       
-      // Use stricter compression (1024px) for Clipboard to keep string size smaller
+      // Use stricter compression (1024px, 0.7) for Clipboard to keep string size manageable for CMS inputs
       const [base64Before, base64After] = await Promise.all([
-        compressAndToBase64(beforeImage, 1024),
-        compressAndToBase64(afterImage, 1024)
+        compressAndToBase64(beforeImage, 1024, 0.7),
+        compressAndToBase64(afterImage, 1024, 0.7)
       ]);
 
       const htmlContent = generateInteractiveHtml(width, height, base64Before, base64After);
@@ -637,10 +656,13 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
       const width = Math.round(imgRef.naturalWidth);
       const height = Math.round(imgRef.naturalHeight);
       
+      // Match download settings (1280px, 0.75) for efficient export
       const [base64Before, base64After] = await Promise.all([
-        compressAndToBase64(beforeImage),
-        compressAndToBase64(afterImage)
+        compressAndToBase64(beforeImage, 1280, 0.75),
+        compressAndToBase64(afterImage, 1280, 0.75)
       ]);
+
+      const aspectRatioPercent = (height / width) * 100;
 
       const htmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -660,15 +682,16 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
             font-family: system-ui, -apple-system, sans-serif;
             overflow: hidden;
         }
+        .wrapper { width: 100%; max-width: 100%; }
         .container {
             position: relative;
             width: 100%;
-            aspect-ratio: ${width} / ${height};
-            max-height: 100vh;
+            padding-bottom: ${aspectRatioPercent}%;
+            height: 0;
             overflow: hidden;
             box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
         }
-        img {
+        .container img {
             display: block;
             width: 100%;
             height: 100%;
@@ -690,7 +713,7 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
         }
         .label {
             position: absolute;
-            bottom: 16px;
+            bottom: 5%;
             left: 50%;
             transform: translateX(-50%);
             padding: 4px 12px;
@@ -711,10 +734,12 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
     </style>
 </head>
 <body>
-    <div class="container">
-        <img src="${base64Before}" alt="Before" class="img-before">
-        <img src="${base64After}" alt="After" class="img-after">
-        <div class="label">Hover to reveal</div>
+    <div class="wrapper">
+        <div class="container">
+            <img src="${base64Before}" alt="Before" class="img-before">
+            <img src="${base64After}" alt="After" class="img-after">
+            <div class="label">Hover to reveal</div>
+        </div>
     </div>
 </body>
 </html>`;
@@ -744,6 +769,17 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
         ref={containerRef}
         className="relative w-full max-w-5xl select-none overflow-hidden rounded-xl shadow-lg group bg-slate-950"
       >
+        {/* Help Button */}
+        <button
+          onClick={() => setShowHostingHelp(true)}
+          className="absolute top-4 left-4 z-40 p-2 bg-black/60 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-full backdrop-blur-md border border-white/10 transition-all shadow-xl"
+          title="How to Host?"
+        >
+          <Icons.Info size={20} />
+        </button>
+
+        {showHostingHelp && <HostingHelp onClose={() => setShowHostingHelp(false)} />}
+
         {/* Download Buttons Group */}
         <div className="absolute top-4 right-4 z-30 flex gap-2">
 
