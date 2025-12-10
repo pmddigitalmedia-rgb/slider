@@ -1,0 +1,5 @@
+{
+  "name": "DiffSlide",
+  "description": "A side-by-side image comparison tool. Upload two images and use the interactive slider to reveal the differences.",
+  "requestFramePermissions": []
+}
