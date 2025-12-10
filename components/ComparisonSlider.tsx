@@ -43,26 +43,39 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
     img.src = src;
   });
 
-  // Helper to convert Blob URL to Base64 Data URI
-  const blobToDataUrl = async (blobUrl: string): Promise<string> => {
-    try {
-      const response = await fetch(blobUrl);
-      const blob = await response.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (typeof reader.result === 'string') {
-            resolve(reader.result);
-          } else {
-            reject(new Error("Failed to convert blob to base64 string"));
-          }
+  // Helper to compress and convert image to base64 JPEG
+  const compressAndToBase64 = async (src: string, maxWidth = 1600): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.naturalWidth;
+            let height = img.naturalHeight;
+
+            // Resize if too big to keep file size manageable
+            if (width > maxWidth) {
+                height = Math.round(height * (maxWidth / width));
+                width = maxWidth;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                reject(new Error("Canvas context failed"));
+                return;
+            }
+            // Draw on white background just in case of transparency
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Convert to JPEG with 0.85 quality
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
         };
-        reader.onerror = () => reject(new Error("FileReader failed to read blob data"));
-        reader.readAsDataURL(blob);
-      });
-    } catch (err) {
-      throw new Error(`Blob fetch failed: ${err}`);
-    }
+        img.onerror = (err) => reject(new Error("Failed to load image for compression"));
+        img.src = src;
+    });
   };
 
   const generateInteractiveHtml = (width: number, height: number, base64Before: string, base64After: string) => {
@@ -76,7 +89,7 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
         body {
             margin: 0;
             padding: 0;
-            background-color: #0f172a; /* Dark background to prevent black-screen appearance */
+            background-color: #0f172a;
             color: #f8fafc;
             display: flex;
             align-items: center;
@@ -84,6 +97,15 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
             min-height: 100vh;
             font-family: system-ui, -apple-system, sans-serif;
             overflow: hidden;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+            color: #94a3b8;
+            z-index: 0;
         }
         .container {
             position: relative;
@@ -93,6 +115,13 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
             overflow: hidden;
             user-select: none;
             box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            background-color: #0f172a;
+            z-index: 1;
+            opacity: 0; 
+            transition: opacity 0.5s ease;
+        }
+        .container.loaded {
+            opacity: 1;
         }
         img {
             display: block;
@@ -176,7 +205,8 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="loading">Loading comparison...</div>
+    <div class="container" id="mainContainer">
         
         <div class="img-layer img-after">
             <img src="${base64After}" alt="After Image">
@@ -200,6 +230,15 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
             const slider = document.getElementById('slider');
             const beforeLayer = document.getElementById('beforeLayer');
             const handleLine = document.getElementById('handleLine');
+            const container = document.getElementById('mainContainer');
+
+            // Show container once DOM is ready (images might still take a ms to paint)
+            if (container) {
+                // Short timeout to ensure paint
+                setTimeout(() => {
+                    container.classList.add('loaded');
+                }, 100);
+            }
 
             if (slider && beforeLayer && handleLine) {
                 slider.addEventListener('input', (e) => {
@@ -538,12 +577,12 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
     setIsExportingHtml(true);
     try {
       const imgRef = await loadImage(beforeImage);
-      const width = imgRef.naturalWidth;
-      const height = imgRef.naturalHeight;
+      const width = Math.round(imgRef.naturalWidth);
+      const height = Math.round(imgRef.naturalHeight);
       
       const [base64Before, base64After] = await Promise.all([
-        blobToDataUrl(beforeImage),
-        blobToDataUrl(afterImage)
+        compressAndToBase64(beforeImage),
+        compressAndToBase64(afterImage)
       ]);
 
       const htmlContent = generateInteractiveHtml(width, height, base64Before, base64After);
@@ -568,12 +607,13 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
     setIsCopying(true);
     try {
       const imgRef = await loadImage(beforeImage);
-      const width = imgRef.naturalWidth;
-      const height = imgRef.naturalHeight;
+      const width = Math.round(imgRef.naturalWidth);
+      const height = Math.round(imgRef.naturalHeight);
       
+      // Use compression to keep code size manageable for clipboards/SquareSpace
       const [base64Before, base64After] = await Promise.all([
-        blobToDataUrl(beforeImage),
-        blobToDataUrl(afterImage)
+        compressAndToBase64(beforeImage, 1200),
+        compressAndToBase64(afterImage, 1200)
       ]);
 
       const htmlContent = generateInteractiveHtml(width, height, base64Before, base64After);
@@ -591,12 +631,12 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
     setIsExportingHover(true);
     try {
       const imgRef = await loadImage(beforeImage);
-      const width = imgRef.naturalWidth;
-      const height = imgRef.naturalHeight;
+      const width = Math.round(imgRef.naturalWidth);
+      const height = Math.round(imgRef.naturalHeight);
       
       const [base64Before, base64After] = await Promise.all([
-        blobToDataUrl(beforeImage),
-        blobToDataUrl(afterImage)
+        compressAndToBase64(beforeImage),
+        compressAndToBase64(afterImage)
       ]);
 
       const htmlContent = `<!DOCTYPE html>
