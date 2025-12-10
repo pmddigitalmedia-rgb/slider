@@ -76,7 +76,8 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
         body {
             margin: 0;
             padding: 0;
-            background-color: transparent;
+            background-color: #0f172a; /* Dark background to prevent black-screen appearance */
+            color: #f8fafc;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -91,6 +92,7 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
             max-height: 100vh;
             overflow: hidden;
             user-select: none;
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
         }
         img {
             display: block;
@@ -123,6 +125,7 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
             z-index: 20;
             cursor: col-resize;
             pointer-events: none;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
         .handle-knob {
             position: absolute;
@@ -176,12 +179,12 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
     <div class="container">
         
         <div class="img-layer img-after">
-            <img src="${base64After}">
+            <img src="${base64After}" alt="After Image">
             <div class="label label-after">AFTER</div>
         </div>
         
         <div class="img-layer img-before" id="beforeLayer">
-            <img src="${base64Before}">
+            <img src="${base64Before}" alt="Before Image">
             <div class="label label-before">BEFORE</div>
         </div>
 
@@ -189,18 +192,22 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
             <div class="handle-knob"></div>
         </div>
 
-        <input type="range" min="0" max="100" value="50" id="slider">
+        <input type="range" min="0" max="100" value="50" id="slider" aria-label="Comparison slider">
     </div>
 
     <script>
-        const slider = document.getElementById('slider');
-        const beforeLayer = document.getElementById('beforeLayer');
-        const handleLine = document.getElementById('handleLine');
+        window.addEventListener('DOMContentLoaded', () => {
+            const slider = document.getElementById('slider');
+            const beforeLayer = document.getElementById('beforeLayer');
+            const handleLine = document.getElementById('handleLine');
 
-        slider.addEventListener('input', (e) => {
-            const val = e.target.value;
-            beforeLayer.style.clipPath = \`inset(0 \${100 - val}% 0 0)\`;
-            handleLine.style.left = \`\${val}%\`;
+            if (slider && beforeLayer && handleLine) {
+                slider.addEventListener('input', (e) => {
+                    const val = e.target.value;
+                    beforeLayer.style.clipPath = \`inset(0 \${100 - val}% 0 0)\`;
+                    handleLine.style.left = \`\${val}%\`;
+                });
+            }
         });
     </script>
 </body>
@@ -602,7 +609,7 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
         body {
             margin: 0;
             padding: 0;
-            background-color: transparent;
+            background-color: #0f172a;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -616,6 +623,7 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
             aspect-ratio: ${width} / ${height};
             max-height: 100vh;
             overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
         }
         img {
             display: block;
