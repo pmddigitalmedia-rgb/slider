@@ -89,7 +89,7 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
         body {
             margin: 0;
             padding: 0;
-            background-color: #0f172a;
+            background-color: #1e293b; /* Dark slate */
             color: #f8fafc;
             display: flex;
             align-items: center;
@@ -98,15 +98,6 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
             font-family: system-ui, -apple-system, sans-serif;
             overflow: hidden;
         }
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 14px;
-            color: #94a3b8;
-            z-index: 0;
-        }
         .container {
             position: relative;
             width: 100%;
@@ -114,14 +105,8 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
             max-height: 100vh;
             overflow: hidden;
             user-select: none;
-            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
             background-color: #0f172a;
             z-index: 1;
-            opacity: 0; 
-            transition: opacity 0.5s ease;
-        }
-        .container.loaded {
-            opacity: 1;
         }
         img {
             display: block;
@@ -202,10 +187,22 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
         }
         .label-before { left: 16px; }
         .label-after { right: 16px; }
+        
+        #error-log {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #991b1b;
+            color: white;
+            padding: 8px;
+            font-size: 12px;
+            display: none;
+            z-index: 9999;
+        }
     </style>
 </head>
 <body>
-    <div class="loading">Loading comparison...</div>
     <div class="container" id="mainContainer">
         
         <div class="img-layer img-after">
@@ -224,28 +221,33 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
 
         <input type="range" min="0" max="100" value="50" id="slider" aria-label="Comparison slider">
     </div>
+    
+    <div id="error-log"></div>
 
     <script>
         window.addEventListener('DOMContentLoaded', () => {
-            const slider = document.getElementById('slider');
-            const beforeLayer = document.getElementById('beforeLayer');
-            const handleLine = document.getElementById('handleLine');
-            const container = document.getElementById('mainContainer');
+            try {
+                const slider = document.getElementById('slider');
+                const beforeLayer = document.getElementById('beforeLayer');
+                const handleLine = document.getElementById('handleLine');
 
-            // Show container once DOM is ready (images might still take a ms to paint)
-            if (container) {
-                // Short timeout to ensure paint
-                setTimeout(() => {
-                    container.classList.add('loaded');
-                }, 100);
-            }
-
-            if (slider && beforeLayer && handleLine) {
-                slider.addEventListener('input', (e) => {
-                    const val = e.target.value;
-                    beforeLayer.style.clipPath = \`inset(0 \${100 - val}% 0 0)\`;
-                    handleLine.style.left = \`\${val}%\`;
-                });
+                if (slider && beforeLayer && handleLine) {
+                    slider.addEventListener('input', (e) => {
+                        requestAnimationFrame(() => {
+                            const val = e.target.value;
+                            beforeLayer.style.clipPath = \`inset(0 \${100 - val}% 0 0)\`;
+                            handleLine.style.left = \`\${val}%\`;
+                        });
+                    });
+                } else {
+                    throw new Error("Missing slider elements");
+                }
+            } catch (err) {
+                const log = document.getElementById('error-log');
+                if (log) {
+                    log.style.display = 'block';
+                    log.textContent = 'Slider Error: ' + err.message;
+                }
             }
         });
     </script>
@@ -580,9 +582,10 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
       const width = Math.round(imgRef.naturalWidth);
       const height = Math.round(imgRef.naturalHeight);
       
+      // Default to 1600px for file download
       const [base64Before, base64After] = await Promise.all([
-        compressAndToBase64(beforeImage),
-        compressAndToBase64(afterImage)
+        compressAndToBase64(beforeImage, 1600),
+        compressAndToBase64(afterImage, 1600)
       ]);
 
       const htmlContent = generateInteractiveHtml(width, height, base64Before, base64After);
@@ -610,10 +613,10 @@ export const ComparisonSlider: React.FC<ComparisonSliderProps> = ({ beforeImage,
       const width = Math.round(imgRef.naturalWidth);
       const height = Math.round(imgRef.naturalHeight);
       
-      // Use compression to keep code size manageable for clipboards/SquareSpace
+      // Use stricter compression (1024px) for Clipboard to keep string size smaller
       const [base64Before, base64After] = await Promise.all([
-        compressAndToBase64(beforeImage, 1200),
-        compressAndToBase64(afterImage, 1200)
+        compressAndToBase64(beforeImage, 1024),
+        compressAndToBase64(afterImage, 1024)
       ]);
 
       const htmlContent = generateInteractiveHtml(width, height, base64Before, base64After);
